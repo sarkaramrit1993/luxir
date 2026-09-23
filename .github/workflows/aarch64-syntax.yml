@@ -2,9 +2,9 @@ name: Check aarch64 intrinsics guards
 
 on:
   pull_request:
-    paths: ['src/**', 'deps/is_utf8/**', 'deps/fetch_sources.sh', '.github/workflows/aarch64-syntax.yml']
+    paths: ['src/**', 'test/**', 'deps/is_utf8/**', 'deps/fetch_sources.sh', '.github/workflows/aarch64-syntax.yml']
   push:
-    paths: ['src/**', 'deps/is_utf8/**', 'deps/fetch_sources.sh', '.github/workflows/aarch64-syntax.yml']
+    paths: ['src/**', 'test/**', 'deps/is_utf8/**', 'deps/fetch_sources.sh', '.github/workflows/aarch64-syntax.yml']
 
 permissions:
   contents: read
@@ -18,19 +18,27 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            g++-14 libboost-dev libfmt-dev libspdlog-dev libxxhash-dev
+            g++-14 libboost-dev libfmt-dev libspdlog-dev libxxhash-dev libgtest-dev
           deps/fetch_sources.sh
-      # Syntax-only, native aarch64: catches x86 intrinsics used without an
+      # Native aarch64 compile of every file that looks x86-specific: catches
+      # intrinsics, builtins, target attributes and headers used without an
       # arch guard. Files are found by pattern so new ones are covered.
-      - name: Syntax-check files that use x86 intrinsics
+      # Compiling to an object (not -fsyntax-only) runs the assembler, so x86
+      # inline asm in emitted code fails too; asm in an inline function that
+      # nothing here instantiates is still not caught. Headers under src/ go
+      # through -isystem src, as in the real build.
+      - name: Compile-check files that use x86-specific code
         run: |
-          files=$(grep -rlE '#include <(x86|imm|emm|pmm|tmm|smm|nmm|wmm|avx[0-9a-z]*|bmi2?)intrin\.h>|__m(128|256|512)' src deps/is_utf8/src)
+          pattern='#\s*include\s*<(\w*intrin|cpuid)\.h>|__builtin_(ia32|cpu)_|(__attribute__\s*\(\(.*|gnu::|pragma\s+GCC\s+)target(_clones)?\s*\(|\b(__)?asm(__)?\s*(volatile\s*|__volatile__\s*)?\(|__m(64|128|256|512)|_(pext|pdep|lzcnt|tzcnt|popcnt)_u(32|64)'
+          files=$(grep -rlE "$pattern" src test deps/is_utf8/src)
           fail=0
           for f in $files; do
             echo "::group::$f"
-            g++-14 -std=c++2c -fsyntax-only -march=armv8-a \
-              -Isrc -Isrc/luxir -Ideps -Ideps/FastPFOR/headers -Ideps/is_utf8/include \
-              -include "$f" -x c++ /dev/null || fail=1
+            inc=$f
+            case $f in src/*.h|src/*.hpp) inc=${f#src/} ;; esac
+            g++-14 -std=c++2c -c -o /dev/null -march=armv8-a -Wall -Werror \
+              -isystem src -Isrc/luxir -Itest -Ideps -Ideps/FastPFOR/headers -Ideps/is_utf8/include \
+              -include "$inc" -x c++ /dev/null || fail=1
             echo "::endgroup::"
           done
           exit $fail

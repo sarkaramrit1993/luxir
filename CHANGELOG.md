@@ -1,5 +1,19 @@
 # Changelog
 
+## [2026-09-23 00:17] - aarch64 CI guard catches more x86-only code
+
+`.github/workflows/aarch64-syntax.yml`: the file pattern now also matches
+`mmintrin.h`, any `*intrin.h`, `cpuid.h`, `__builtin_ia32_*`,
+`__builtin_cpu_*`, `target(...)` attributes and pragmas, inline asm, `__m64`
+and bare `_pext/_pdep/_lzcnt/_tzcnt/_popcnt_u32/u64` calls, and it scans
+`test/` too (added to the `paths` filters, with `libgtest-dev`). Files compile
+to an object with `-Wall -Werror` instead of `-fsyntax-only`, so the assembler
+rejects x86 asm in emitted code and undoing the `is_utf8` template-id fix
+fails. Headers under `src/` go through `-isystem src` like the real build, so
+warnings the build never shows can't fail the check. Still g++-14: it rejects
+every planted case. Not caught: x86 asm inside an inline function that no
+checked file instantiates.
+
 ## [2026-09-23 00:17] - byte-identity tests assert a pinned hash
 
 `test/basic_tests/UnpartitionedByteIdentityTest.cpp`: both tests only wrote a
