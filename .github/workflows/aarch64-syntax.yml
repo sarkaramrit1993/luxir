@@ -1,0 +1,36 @@
+name: Check aarch64 intrinsics guards
+
+on:
+  pull_request:
+    paths: ['src/**', 'deps/is_utf8/**', 'deps/fetch_sources.sh', '.github/workflows/aarch64-syntax.yml']
+  push:
+    paths: ['src/**', 'deps/is_utf8/**', 'deps/fetch_sources.sh', '.github/workflows/aarch64-syntax.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install compiler and headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++-14 libboost-dev libfmt-dev libspdlog-dev libxxhash-dev
+          deps/fetch_sources.sh
+      # Syntax-only, native aarch64: catches x86 intrinsics used without an
+      # arch guard. Files are found by pattern so new ones are covered.
+      - name: Syntax-check files that use x86 intrinsics
+        run: |
+          files=$(grep -rlE '#include <(x86|imm|emm|pmm|tmm|smm|nmm|wmm|avx[0-9a-z]*|bmi2?)intrin\.h>|__m(128|256|512)' src deps/is_utf8/src)
+          fail=0
+          for f in $files; do
+            echo "::group::$f"
+            g++-14 -std=c++2c -fsyntax-only -march=armv8-a \
+              -Isrc -Isrc/luxir -Ideps -Ideps/FastPFOR/headers -Ideps/is_utf8/include \
+              -include "$f" -x c++ /dev/null || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail

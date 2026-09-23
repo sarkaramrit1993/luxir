@@ -8,7 +8,14 @@
 #include <cassert>
 #include <stdexcept>
 #include <bit>
+#if defined(__x86_64__) || defined(__SSE2__)
 #include <emmintrin.h>  // __m128i, for the inline numeric decode loop
+#elif defined(__aarch64__)
+// Supplies the __m128i typedef (int64x2_t) and the SSE spellings the inline
+// decode loop uses. Self-contained: it needs only <arm_neon.h>. Codec.cpp
+// cannot cover this, because it includes Codec.h before FastPFOR's headers.
+#include "FastPFOR/headers/fastpfor_neon.h"
+#endif  // x86-64 / SSE2, else aarch64
 #include "luxir/util/luxir_util.h"
 
 // Integer codecs, backed by FastPFOR's SIMD bit-packing kernels (which have

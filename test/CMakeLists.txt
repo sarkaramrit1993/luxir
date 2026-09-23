@@ -25,26 +25,32 @@ target_precompile_headers(luxir_test PRIVATE
   <benchmark/benchmark.h>
 )
 
-# Compile the same exhaustive decoded-successor tests with AVX-512 forcibly
-# unavailable so AVX2 hosts exercise the AVX2 path.
-add_executable(decoded_successor_no_avx512_test
-  basic_tests/DecodedSuccessorTest.cpp)
-target_include_directories(decoded_successor_no_avx512_test PRIVATE .)
-target_link_libraries(decoded_successor_no_avx512_test PRIVATE GTest::gtest_main)
-target_compile_options(decoded_successor_no_avx512_test PRIVATE -mno-avx512f)
-target_compile_definitions(decoded_successor_no_avx512_test PRIVATE
-  LUXIR_EXPECT_NO_AVX512=1)
+# The -mno-avx* spellings are x86-only; aarch64 GCC rejects them. On non-x86
+# targets DecodedSuccessor has no vector path (LUXIR_DECODED_SUCCESSOR_SIMD is
+# 0), so luxir_test already covers the scalar implementation and no variant
+# target is needed.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
+  # Compile the same exhaustive decoded-successor tests with AVX-512 forcibly
+  # unavailable so AVX2 hosts exercise the AVX2 path.
+  add_executable(decoded_successor_no_avx512_test
+    basic_tests/DecodedSuccessorTest.cpp)
+  target_include_directories(decoded_successor_no_avx512_test PRIVATE .)
+  target_link_libraries(decoded_successor_no_avx512_test PRIVATE GTest::gtest_main)
+  target_compile_options(decoded_successor_no_avx512_test PRIVATE -mno-avx512f)
+  target_compile_definitions(decoded_successor_no_avx512_test PRIVATE
+    LUXIR_EXPECT_NO_AVX512=1)
 
-# Compile the same tests without AVX-512 or AVX2 so the scalar portability path
-# is exercised on SIMD hosts.
-add_executable(decoded_successor_scalar_test
-  basic_tests/DecodedSuccessorTest.cpp)
-target_include_directories(decoded_successor_scalar_test PRIVATE .)
-target_link_libraries(decoded_successor_scalar_test PRIVATE GTest::gtest_main)
-target_compile_options(decoded_successor_scalar_test PRIVATE
-  -mno-avx512f -mno-avx2)
-target_compile_definitions(decoded_successor_scalar_test PRIVATE
-  LUXIR_EXPECT_SCALAR=1)
+  # Compile the same tests without AVX-512 or AVX2 so the scalar portability path
+  # is exercised on SIMD hosts.
+  add_executable(decoded_successor_scalar_test
+    basic_tests/DecodedSuccessorTest.cpp)
+  target_include_directories(decoded_successor_scalar_test PRIVATE .)
+  target_link_libraries(decoded_successor_scalar_test PRIVATE GTest::gtest_main)
+  target_compile_options(decoded_successor_scalar_test PRIVATE
+    -mno-avx512f -mno-avx2)
+  target_compile_definitions(decoded_successor_scalar_test PRIVATE
+    LUXIR_EXPECT_SCALAR=1)
+endif()
 
 
 # (luxir_smoke removed: it was migration scaffolding to run SmokeTest while luxir_test was

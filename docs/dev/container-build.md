@@ -1,9 +1,45 @@
 # Container development build
 
-The development image uses Ubuntu 22.04 (glibc 2.35), GCC 16.2, CMake 4.4.3,
+The development image uses Ubuntu 22.04 (glibc 2.35), GCC 16, CMake 4.4.3,
 Ninja, ccache, and one pinned vcpkg checkout. It contains normal and
 AddressSanitizer dependencies, each with Debug and Release libraries.
-Linux x86-64 is the current target.
+Linux x86-64 and Linux arm64 are both supported; the Dockerfile selects the
+toolchain and vcpkg triplet from Docker's `TARGETARCH`, so the same
+`./tools/dev-container build-image` produces either.
+
+## arm64
+
+`./tools/dev-container build-image` on an arm64 host builds the arm64 image with
+no extra flags. Use the arm64 presets in place of the `container-*` ones:
+
+```bash
+./tools/dev-container cmake --preset container-arm64-debug
+./tools/dev-container cmake --build --preset container-arm64-debug
+./tools/dev-container ./build/container-arm64-debug/bin/luxir_test --gtest_brief=1 --gtest_print_time=0
+```
+
+`container-arm64-release` and `container-arm64-asan` mirror their x64
+counterparts. They use the `arm64-linux-luxir-v2` and
+`arm64-linux-luxir-v2-asan` triplets and compile at `LUXIR_CPU_TARGET=armv8-a`.
+
+Two differences from the x64 image are worth knowing:
+
+- Both images run GCC 16.2.0, but obtained differently. Compiler Explorer
+  publishes an x86-64 build only, so the arm64 toolchain stage builds the same
+  release from the GNU source tarball (C and C++ only, pinned by
+  `GCC_SRC_SHA256`). That adds about 20 minutes to a cold arm64 image build
+  on 8 CPUs. It replaced the `ubuntu-toolchain-r/test` PPA, whose GCC 16 trunk
+  snapshot reported Pacific/Apia's skipped 2011-12-30 as `unique` from
+  `time_zone::get_info(local_time)` and so failed two date tests. Keep
+  `GCC_VERSION` shared so the two arches cannot drift to different releases.
+- `armv8-a` omits the ARMv8.1 LSE atomics, matching Ubuntu 22.04's aarch64
+  default. Timings are not comparable across architectures.
+
+Building the dependency set from source needs headroom: roughly 12 GB of free
+disk in the Docker VM and enough memory for the configured parallelism. gRPC is
+the peak for both. If a build dies during gRPC's install step or reports
+`cannot allocate memory`, raise Docker's disk and memory limits, or lower
+parallelism with `--build-arg BUILD_JOBS=N`.
 
 The two installs live at `/opt/vcpkg/installed` and `/opt/vcpkg/installed-asan`
 in the same checkout. They share source pins and the build's binary cache.
