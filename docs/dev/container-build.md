@@ -1,6 +1,6 @@
 # Container development build
 
-The development image uses Ubuntu 22.04 (glibc 2.35), GCC 16, CMake 4.4.3,
+The development image uses Ubuntu 22.04 (glibc 2.35), GCC 16.2, CMake 4.4.3,
 Ninja, ccache, and one pinned vcpkg checkout. It contains normal and
 AddressSanitizer dependencies, each with Debug and Release libraries.
 Linux x86-64 and Linux arm64 are both supported; the Dockerfile selects the
@@ -32,8 +32,11 @@ Two differences from the x64 image are worth knowing:
   snapshot reported Pacific/Apia's skipped 2011-12-30 as `unique` from
   `time_zone::get_info(local_time)` and so failed two date tests. Keep
   `GCC_VERSION` shared so the two arches cannot drift to different releases.
-- `armv8-a` omits the ARMv8.1 LSE atomics, matching Ubuntu 22.04's aarch64
-  default. Timings are not comparable across architectures.
+- `armv8-a` does not emit ARMv8.1 LSE atomic instructions inline. GCC's
+  `-moutline-atomics` is on by default for aarch64, so atomics go through
+  libgcc helpers (`__aarch64_ldadd4_acq_rel` and friends) that use LSE at
+  runtime when the CPU has it. Timings are not comparable across
+  architectures.
 
 Building the dependency set from source needs headroom: roughly 12 GB of free
 disk in the Docker VM and enough memory for the configured parallelism. gRPC is

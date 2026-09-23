@@ -11,8 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # amd64: Compiler Explorer's Ubuntu 22.04 build. Keep this digest when
 # mirroring it. Compiler Explorer publishes x86-64 only, so arm64 builds the
-# same GCC release from the GNU source tarball (GCC_SRC_SHA256, whose .sig
-# verifies against gnu-keyring.gpg) rather than taking a distro or PPA build:
+# same GCC release from the GNU source tarball (checked against the pinned
+# GCC_SRC_SHA256; the .sig is not verified here) rather than taking a distro
+# or PPA build:
 # the PPA's GCC 16 trunk snapshot predates libstdc++ tzdb fixes (PR116110,
 # PR124513) and got Pacific/Apia's skipped 2011-12-30 wrong. Both arches end
 # up with the same /opt/gcc-${GCC_VERSION} layout.

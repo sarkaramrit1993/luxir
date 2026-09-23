@@ -26,10 +26,9 @@ tier fails instead of passing silently. The env vars still write the dump.
 ## [2026-09-23 04:15] - arm64 image builds GCC 16.2.0 from source
 
 `.devcontainer/Dockerfile`:
-- arm64 now builds GCC 16.2.0 from the GNU source tarball (SHA256 pinned; its
-  signature checks out against gnu-keyring.gpg) and drops the
-  ubuntu-toolchain-r PPA. The PPA's trunk snapshot 16.0.1 20260315 reported
-  every hour of Pacific/Apia's skipped 2011-12-30 as `unique` from
+- arm64 now builds GCC 16.2.0 from the GNU source tarball (pinned by SHA256) and
+  drops the ubuntu-toolchain-r PPA. The PPA's trunk snapshot 16.0.1 20260315
+  reported every hour of Pacific/Apia's skipped 2011-12-30 as `unique` from
   `time_zone::get_info(local_time)`; 16.2.0 reports `nonexistent` from the same
   tzdata 2026c, on both arches. That snapshot predates the libstdc++ tzdb fixes
   for PR116110 and PR124513. Both arches now run the same release.
@@ -47,7 +46,7 @@ tier fails instead of passing silently. The env vars still write the dump.
 Verified on native arm64 (clean build trees, 0 warnings under `-Werror`):
 Debug 2095/2095 pass, 0 skipped, including both Apia tests; ASan 2090 pass, 5
 expected allocation-counting skips, 0 sanitizer reports. Cross-arch byte
-identity (plan item B2), amd64 built emulated in an amd64 image: the
+identity, amd64 built emulated in an amd64 image: the
 `FullBlockCorpus` dump (6405 bytes) and the `DefaultMergeCorpus` dump (1217
 bytes) are byte-identical between arm64 and amd64.
 
@@ -80,8 +79,8 @@ helper.
 ## [2026-09-22 22:45] - aarch64 (arm64 Linux) port
 
 Luxir now builds, tests and runs on arm64 Linux from the same devcontainer
-Dockerfile as x86-64. Verified on native arm64 hardware: 2088 of 2090 tests
-pass, 0 skipped.
+Dockerfile as x86-64. Verified on native arm64 hardware; current test results
+are in the GCC 16.2.0 entry above.
 
 Dependencies and container:
 - `deps/triplets/common/linux-aarch64.cmake`: use vcpkg's `arm64` architecture
@@ -93,10 +92,8 @@ Dependencies and container:
 - `deps/ports/lapack/vcpkg.json`: `supports` was `linux & x64`, which made vcpkg
   refuse lapack, and transitively faiss, on arm64.
 - `.devcontainer/Dockerfile`: `TARGETARCH`-gated toolchain and vcpkg triplets.
-  arm64 takes GCC 16 from the ubuntu-toolchain-r PPA (Compiler Explorer
-  publishes x86-64 only) and symlinks it into the same `/opt/gcc` layout.
-  `gpg-agent` is installed explicitly, because `add-apt-repository` needs it and
-  `--no-install-recommends` strips it.
+  arm64 builds GCC 16.2.0 from the GNU source tarball (Compiler Explorer
+  publishes x86-64 only) into the same `/opt/gcc` layout; see the entry above.
 - `.devcontainer/check-toolchain.sh`: derive `-march` and the expected dynamic
   loader from `uname -m`.
 - `CMakePresets.json`: add `container-arm64-{debug,release,asan}`.
