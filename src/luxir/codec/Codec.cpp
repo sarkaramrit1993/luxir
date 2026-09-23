@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <cstring>
+#if defined(__x86_64__)
 #include <immintrin.h>
+#endif  // __x86_64__ only; aarch64 NEON shim lives in FastPFOR's headers
 
 #include "luxir/reader/Postings.h"
 
@@ -16,6 +18,28 @@
 #include "simdbitpacking.h"   // simdpack (with mask) / simdunpack
 #include "bitpackinghelpers.h"// fastpackwithoutmask / fastunpack (scalar tails)
 #include "util.h"             // gccbits
+
+#if defined(__aarch64__) && !defined(__x86_64__) && !defined(__SSE2__)
+// FastPFOR's NEON shim (fastpfor_neon.h, pulled in by Codec.h) covers the SSE
+// subset FastPFOR's own kernels use, which excludes the interleave family that
+// t4InverseDelta's 4x4 lane transpose needs. These are the standard SSE->NEON
+// correspondences, the same ones sse2neon uses, each a single instruction.
+// __m128i is int64x2_t here.
+static inline __m128i _mm_unpacklo_epi32(__m128i a, __m128i b) {
+  return vreinterpretq_s64_s32(
+      vzip1q_s32(vreinterpretq_s32_s64(a), vreinterpretq_s32_s64(b)));
+}
+static inline __m128i _mm_unpackhi_epi32(__m128i a, __m128i b) {
+  return vreinterpretq_s64_s32(
+      vzip2q_s32(vreinterpretq_s32_s64(a), vreinterpretq_s32_s64(b)));
+}
+static inline __m128i _mm_unpacklo_epi64(__m128i a, __m128i b) {
+  return vzip1q_s64(a, b);
+}
+static inline __m128i _mm_unpackhi_epi64(__m128i a, __m128i b) {
+  return vzip2q_s64(a, b);
+}
+#endif  // aarch64 interleave shims
 
 namespace luxir {
 

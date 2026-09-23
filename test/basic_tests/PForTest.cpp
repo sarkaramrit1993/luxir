@@ -417,3 +417,56 @@ TEST_F(PForTest, pfordBaseCarry) {
     ASSERT_EQ(out, data) << "trial " << trial << " base " << base;
   }
 }
+
+// The T4 docid path stores gaps transposed across 4 lanes of 32 and un-transposes
+// them on decode (t4Delta / t4InverseDelta in Codec.cpp).  t4Delta is
+// unconditionally scalar while t4InverseDelta is architecture-dependent, so this
+// round trip compares two different implementations rather than one against
+// itself.
+TEST_F(PForTest, pfordT4TransposeExactness) {
+  LuxirPFORd fp;
+
+  for (uint32_t step : {1u, 2u, 3u, 1u << 16, 1u << 24}) {
+    std::vector<uint32_t> data(BLK);
+    uint32_t acc = 0;
+    for (auto& v : data) {
+      acc += step;
+      v = acc;
+    }
+    ASSERT_EQ(roundtrip(fp, data), data) << "uniform step " << step;
+  }
+
+  // Lane boundaries at 0/32/64/96: a large jump exactly on a boundary stresses
+  // the per-lane base offsets that the un-transpose adds back.
+  std::vector<uint32_t> steps(BLK);
+  uint32_t acc = 0;
+  for (uint32_t i = 0; i < BLK; ++i) {
+    acc += (i % 32 == 0) ? 1000000u : 1u;
+    steps[i] = acc;
+  }
+  ASSERT_EQ(roundtrip(fp, steps), steps) << "lane-boundary jumps";
+
+  // The cases above produce a residual matrix whose four lane rows are
+  // identical, so they detect output-side permutations but not input-side ones.
+  // Lane j owns docids [32j, 32j+32), so deriving the gap from both i/32 and
+  // i%32 makes every lane's residual row distinct and distinct within itself.
+  std::vector<uint32_t> laneDistinct(BLK);
+  acc = 0;
+  for (uint32_t i = 0; i < BLK; ++i) {
+    const uint32_t lane = i / 32;
+    acc += 1 + lane * 1000 + (i % 32) * (lane + 1);
+    laneDistinct[i] = acc;
+  }
+  ASSERT_EQ(roundtrip(fp, laneDistinct), laneDistinct) << "per-lane distinct residuals";
+
+  // Deterministic pseudo-random gaps, including zeros (repeated docids allowed).
+  std::vector<uint32_t> mixed(BLK);
+  uint32_t state = 12345u;
+  acc = 0;
+  for (uint32_t i = 0; i < BLK; ++i) {
+    state = state * 1103515245u + 12345u;
+    acc += (state >> 16) % 37u;
+    mixed[i] = acc;
+  }
+  ASSERT_EQ(roundtrip(fp, mixed), mixed) << "mixed pseudo-random gaps";
+}

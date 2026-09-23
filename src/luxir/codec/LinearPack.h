@@ -7,7 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#if defined(__x86_64__) || defined(__SSE2__) || defined(__SSE__)
 #include <immintrin.h>
+#endif  // x86-64; aarch64 NEON shim lives in FastPFOR's fastpfor_neon.h (__m128i typedef)
 #include <utility>
 #include <vector>
 
