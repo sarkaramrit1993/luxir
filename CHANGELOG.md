@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026-09-23 00:17] - byte-identity tests assert a pinned hash
+
+`test/basic_tests/UnpartitionedByteIdentityTest.cpp`: both tests only wrote a
+dump when their env var was set and asserted nothing. They now always
+serialize the merged segment's files in the dump format and assert its length
+(1217 and 6405 bytes, the sizes verified identical on arm64 and amd64) and its
+XXH3-64 hash, so a codec path that encodes differently on some arch or CPU
+tier fails instead of passing silently. The env vars still write the dump.
+
 ## [2026-09-23 04:15] - arm64 image builds GCC 16.2.0 from source
 
 `.devcontainer/Dockerfile`:

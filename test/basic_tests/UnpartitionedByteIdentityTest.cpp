@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include "luxir/reader/Postings.h"
+#include "luxir/util/luxir_util.h"
 #include "test/TestIndex.h"
 
 #include <algorithm>
@@ -15,10 +16,15 @@
 using namespace luxir;
 using namespace luxir::test;
 
+// Serializes the merged segment's files (sorted by name, each as u64 name
+// length, name, u64 byte length, bytes) and pins their size and XXH3 hash.
+// The constants pin the on-disk format: they must match on every arch and
+// CPU tier, so a SIMD codec path that encodes differently fails here.
+// Setting dumpEnv also writes the buffer to that path for cross-arch diffs.
 // Each test gets its own env var: gtest shuffles by default, so two tests
 // truncating one path would leave whichever ran last.
-static void dumpSegmentFiles(TestIndex& index, const char* dumpPath) {
-  if (dumpPath == nullptr) return;
+static void checkSegmentFiles(TestIndex& index, const char* dumpEnv,
+                              size_t expectedLen, uint64_t expectedHash) {
   uint64_t segId = index.reader->segments()[0].segInfo.seg_id;
   std::string prefix = Postings::getIndexFileNamePrefix(segId);
   std::vector<Directory::FileInfo> infos;
@@ -26,20 +32,26 @@ static void dumpSegmentFiles(TestIndex& index, const char* dumpPath) {
   std::vector<std::string> files;
   for (const auto& info : infos) files.push_back(info.name);
   std::sort(files.begin(), files.end());
-  std::ofstream dump(dumpPath, std::ios::binary | std::ios::trunc);
-  ASSERT_TRUE(dump.good());
+  std::string buf;
   for (const auto& name : files) {
     if (!name.starts_with(prefix)) continue;
     auto input = index.dir.openFile(name);
     std::string_view bytes = input->read();
     uint64_t nameLen = name.size();
     uint64_t byteLen = bytes.size();
-    dump.write((const char*) &nameLen, sizeof(nameLen));
-    dump.write(name.data(), (std::streamsize) name.size());
-    dump.write((const char*) &byteLen, sizeof(byteLen));
-    dump.write(bytes.data(), (std::streamsize) bytes.size());
+    buf.append((const char*) &nameLen, sizeof(nameLen));
+    buf.append(name);
+    buf.append((const char*) &byteLen, sizeof(byteLen));
+    buf.append(bytes);
   }
-  ASSERT_TRUE(dump.good());
+  if (const char* dumpPath = std::getenv(dumpEnv)) {
+    std::ofstream dump(dumpPath, std::ios::binary | std::ios::trunc);
+    dump.write(buf.data(), (std::streamsize) buf.size());
+    ASSERT_TRUE(dump.good());
+  }
+  EXPECT_EQ(expectedLen, buf.size());
+  uint64_t hash = XXH3_64bits(buf.data(), buf.size());
+  EXPECT_EQ(expectedHash, hash) << "actual hash 0x" << std::hex << hash;
 }
 
 TEST(UnpartitionedByteIdentityTest, DefaultMergeCorpus) {
@@ -67,7 +79,7 @@ TEST(UnpartitionedByteIdentityTest, DefaultMergeCorpus) {
   index.initReader();
   ASSERT_EQ(1u, index.reader->segments().size());
 
-  dumpSegmentFiles(index, std::getenv("LUXIR_BYTE_DUMP"));
+  checkSegmentFiles(index, "LUXIR_BYTE_DUMP", 1217, 0x000d1bbbeb52e5ccULL);
 }
 
 // Terms long enough to fill DOCS_BLOCK_SIZE blocks, so the dump covers the
@@ -99,5 +111,5 @@ TEST(UnpartitionedByteIdentityTest, FullBlockCorpus) {
   index.iw->mergeSegments();
   index.initReader();
   ASSERT_EQ(1u, index.reader->segments().size());
-  dumpSegmentFiles(index, std::getenv("LUXIR_BYTE_DUMP_BLOCKS"));
+  checkSegmentFiles(index, "LUXIR_BYTE_DUMP_BLOCKS", 6405, 0xe917c855b0c17649ULL);
 }
