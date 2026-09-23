@@ -191,13 +191,14 @@ public:
     // PERF-CRITICAL, RELIES ON AUTO-VECTORIZATION. Block BM25 for the dense
     // disjunction hot path (bulk_dense, via fillScoresFromSpans). It is split on
     // purpose: a scalar invNorm[] LUT-gather loop, then a math-ONLY loop that gcc
-    // auto-vectorizes to AVX (vdivps / vfmadd132ps / vmulps / vsubps over ymm,
+    // auto-vectorizes to AVX (vdivps / vmulps / vaddps / vsubps over ymm,
     // 8-wide). Two rules if you touch this:
     //   1. Do NOT merge the two loops - the gather (invNorm[norms[i]]) inside the
     //      math loop blocks vectorization.
     //   2. Do NOT algebraically rewrite loop 2 (no precomputing boost*weight, no
-    //      reassociation). Scores must stay BIT-IDENTICAL to score() above, and the
-    //      vector FMA only matches the scalar path because the expression is verbatim.
+    //      reassociation, no std::fma). Scores must stay BIT-IDENTICAL to score()
+    //      above and across platforms; the build sets -ffp-contract=off so no
+    //      target fuses the multiply-add.
     // After any change, objdump TermQuery::Scorer::fillScoresFromSpans (this inlines
     // there) and confirm vdivps/ymm survive, then re-run the byte-identical score
     // guards + the bulk_dense gcc-release A/B. Auto-vec confirmed on g++ (Ubuntu)

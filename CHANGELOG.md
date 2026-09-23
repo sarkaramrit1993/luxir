@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026-09-23] - BM25 scores are bit-identical across platforms
+
+GCC's default `-ffp-contract=fast` fused `1 + termFreq * invNorm` into an FMA
+only on optimized arm64 and x86-64-v3/v4 builds, so some scores differed by one
+ulp between platforms. Project targets now build with `-ffp-contract=off`.
+`ScoreBitsTest` pins every score bit for a small corpus; it passes on arm64
+Debug and Release and x86-64 v2 and v3.
+
 ## [2026-09-23] - aarch64 (arm64 Linux) port
 
 Luxir now builds, tests and runs on arm64 Linux from the same devcontainer
