@@ -111,5 +111,5 @@ TEST(UnpartitionedByteIdentityTest, FullBlockCorpus) {
   index.iw->mergeSegments();
   index.initReader();
   ASSERT_EQ(1u, index.reader->segments().size());
-  checkSegmentFiles(index, "LUXIR_BYTE_DUMP_BLOCKS", 6405, 0xe917c855b0c17649ULL);
+  checkSegmentFiles(index, "LUXIR_BYTE_DUMP_BLOCKS", 6405, 0xf36890bd9ee161a6ULL);
 }

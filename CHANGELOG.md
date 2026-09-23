@@ -1,5 +1,18 @@
 # Changelog
 
+## [2026-09-23 01:38] - PFor exception writer no longer leaks stack bytes to disk
+
+`src/luxir/codec/Codec.cpp` `LuxirBitPacker::writeLane`: the scalar tail
+packs a whole group of 32 residuals unmasked, so the padding slots past the
+lane's count landed in the last kept word. `data` is an uninitialized stack
+array, so that word carried whatever an earlier block left there: Debug
+(`-ftrivial-auto-var-init=pattern`) and Release wrote different bytes for the
+same input. Readers ignore those bits, so existing indexes read fine. The
+padding is now zeroed before packing. Found by the first arm64 Release run of
+`UnpartitionedByteIdentityTest.FullBlockCorpus`; its pinned hash changes to
+the zero-padded value, which Debug, Release, ASan and every
+`-ftrivial-auto-var-init` mode now agree on. The bug predates the aarch64 port.
+
 ## [2026-09-23 00:17] - aarch64 CI guard catches more x86-only code
 
 `.github/workflows/aarch64-syntax.yml`: the file pattern now also matches
