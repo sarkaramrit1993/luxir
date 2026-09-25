@@ -164,6 +164,10 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   # Virtual overrides retain base signatures. NDEBUG also creates unused
   # assert-only variables, so warnings are fatal only in debug builds.
   add_compile_options(-Wall -Wextra -Wno-unused-parameter "$<$<CONFIG:DEBUG>:-Werror>")
+  # Scores must be bit-identical on every platform and build type. gnu++ modes
+  # default to -ffp-contract=fast, which fuses a*b+c into FMA only where the
+  # target has it (arm64, x86-64-v3+) and only when optimizing.
+  add_compile_options(-ffp-contract=off)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__SSSE3__ -arch:AVX")
